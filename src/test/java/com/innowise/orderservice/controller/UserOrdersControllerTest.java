@@ -5,24 +5,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.innowise.orderservice.IntegrationTestBase;
-import com.innowise.orderservice.client.UserClient;
-import com.innowise.orderservice.model.dto.response.UserResponseDto;
 import com.innowise.orderservice.model.entity.Order;
 import com.innowise.orderservice.model.entity.OrderStatus;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
-@AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UserOrdersControllerTest extends IntegrationTestBase {
 
   @Autowired
@@ -36,9 +32,6 @@ class UserOrdersControllerTest extends IntegrationTestBase {
 
   @Autowired
   private OrderRepository orderRepository;
-
-  @MockBean
-  private UserClient userClient;
 
   private Order testOrder;
 
@@ -54,11 +47,29 @@ class UserOrdersControllerTest extends IntegrationTestBase {
     testOrder = orderRepository.save(testOrder);
   }
 
+  @BeforeEach
+  void setupWiremock() {
+    WireMock.configureFor(wiremock.getHost(), wiremock.getMappedPort(8080));
+    WireMock.reset();
+  }
+
+  private void stubUser(Long userId) {
+    WireMock.stubFor(WireMock.get("/api/v1/users/" + userId).willReturn(
+        WireMock.aResponse().withStatus(200).withHeader("Content-Type", "application/json")
+            .withBody("""
+                {
+                  "id": %d,
+                  "name": "Andrei",
+                  "surname": "ilyutsik",
+                  "email": "ilyutsik.adnrei@gmail.com",
+                  "active" : "true"
+                }
+                """.formatted(userId))));
+  }
+
   @Test
   void getByUserId_whenUserHasOrders_shouldReturnOrders() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik", LocalDate.now(),
-            "ilyutsik.andrei@gmail.com", true));
+    stubUser(1L);
 
     mockMvc.perform(get("/api/v1/user/{userId}/orders", 1L))
         .andExpect(status().isOk())
@@ -77,9 +88,7 @@ class UserOrdersControllerTest extends IntegrationTestBase {
 
   @Test
   void getUserOrders_whenUserHasOrders_shouldReturnOrders() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik", LocalDate.now(),
-            "ilyutsik.andrei@gmail.com", true));
+    stubUser(1L);
 
     mockMvc.perform(get("/api/v1/user/orders")
             .header("X-User-Id", 1L))

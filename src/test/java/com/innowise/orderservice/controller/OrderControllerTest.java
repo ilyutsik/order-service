@@ -1,21 +1,20 @@
 package com.innowise.orderservice.controller;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.innowise.orderservice.IntegrationTestBase;
-import com.innowise.orderservice.client.UserClient;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
 import com.innowise.orderservice.model.dto.response.OrderResponseDto;
-import com.innowise.orderservice.model.dto.response.UserResponseDto;
 import com.innowise.orderservice.model.entity.Item;
 import com.innowise.orderservice.model.entity.Order;
 import com.innowise.orderservice.model.entity.OrderItem;
@@ -23,20 +22,17 @@ import com.innowise.orderservice.model.entity.OrderStatus;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-@AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class OrderControllerTest extends IntegrationTestBase {
 
   @Autowired
@@ -50,9 +46,6 @@ class OrderControllerTest extends IntegrationTestBase {
 
   @Autowired
   private OrderRepository orderRepository;
-
-  @MockBean
-  private UserClient userClient;
 
   private OrderCreateDto testOrderCreateDto;
 
@@ -97,21 +90,40 @@ class OrderControllerTest extends IntegrationTestBase {
     testOrderCreateDto.setItems(List.of(new OrderItemCreateDto(testItem.getId(), 2)));
   }
 
+  @BeforeEach
+  void setupWiremock() {
+    WireMock.configureFor(wiremock.getHost(), wiremock.getMappedPort(8080));
+    WireMock.reset();
+  }
+
+  private void stubUser(Long userId) {
+    WireMock.stubFor(WireMock.get("/api/v1/users/" + userId)
+        .willReturn(WireMock
+            .aResponse()
+            .withStatus(200)
+            .withHeader("Content-Type", "application/json")
+            .withBody("""
+                {
+                  "id": %d,
+                  "name": "Andrei",
+                  "surname": "ilyutsik",
+                  "email": "ilyutsik.adnrei@gmail.com",
+                  "active" : "true"
+                }
+                """.formatted(userId))));
+  }
+
   @Test
   void create_whenValidUser_shouldReturnCreated() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik", LocalDate.now(),
-            "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
-    MvcResult result = mockMvc.perform(post("/api/v1/order")
-            .header("X-User-Id", String.valueOf(1L))
+    MvcResult result = mockMvc.perform(post("/api/v1/order").header("X-User-Id", String.valueOf(1L))
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(testOrderCreateDto)))
-        .andExpect(status().isCreated())
-        .andReturn();
+        .andExpect(status().isCreated()).andReturn();
 
-    OrderResponseDto response = objectMapper.readValue(
-        result.getResponse().getContentAsString(), OrderResponseDto.class);
+    OrderResponseDto response = objectMapper.readValue(result.getResponse().getContentAsString(),
+        OrderResponseDto.class);
 
     assertThat(response.getUser().getName()).isEqualTo("Andrei");
     assertThat(response.getTotalPrice()).isNotNull();
@@ -119,79 +131,61 @@ class OrderControllerTest extends IntegrationTestBase {
 
   @Test
   void create_whenUserNotFound_shouldReturn404() throws Exception {
-    Mockito.when(userClient.getUserById(99L)).thenReturn(null);
+    stubUser(1L);
 
-    mockMvc.perform(post("/api/v1/order")
-            .header("X-User-Id", 99L)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(testOrderCreateDto)))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("User Not Found"));
+    mockMvc.perform(
+            post("/api/v1/order").header("X-User-Id", 99L).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testOrderCreateDto)))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("User Not Found"));
   }
 
   @Test
   void create_whenItemNotFound_shouldReturn404() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik", LocalDate.now(),
-            "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
-    itemRepository.delete(testItem);
+    itemRepository.deleteById(testItem.getId());
 
-    mockMvc.perform(post("/api/v1/order")
-            .header("X-User-Id", 1L)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(testOrderCreateDto)))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Item Not Found"));
+    mockMvc.perform(
+            post("/api/v1/order").header("X-User-Id", 1L).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testOrderCreateDto)))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("Item Not Found"));
   }
 
   @Test
   void create_whenInvalidRequest_shouldReturn400() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik", LocalDate.now(),
-            "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
     testOrderCreateDto.setItems(Collections.emptyList());
 
-    mockMvc.perform(post("/api/v1/order")
-            .header("X-User-Id", 1L)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(testOrderCreateDto)))
+    mockMvc.perform(
+            post("/api/v1/order").header("X-User-Id", 1L).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("Validation Failed"));
   }
 
   @Test
   void getById_whenOrderExistsAndUserExists_shouldReturn200() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik", LocalDate.now(),
-            "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/order/{id}", testOrder.getId()))
-        .andExpect(status().isOk())
+    mockMvc.perform(get("/api/v1/order/{id}", testOrder.getId())).andExpect(status().isOk())
         .andExpect(jsonPath("$.user.name").value("Andrei"))
         .andExpect(jsonPath("$.totalPrice").value(testOrder.getTotalPrice().intValue()));
   }
 
   @Test
   void getById_whenOrderNotFound_shouldReturn404() throws Exception {
-    mockMvc.perform(get("/api/v1/order/{id}", 999L))
-        .andExpect(status().isNotFound())
+    mockMvc.perform(get("/api/v1/order/{id}", 999L)).andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
 
   @Test
   void getOrders_whenOrdersExist_shouldReturnPageWithUsers() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik",
-            LocalDate.now(), "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/order")
-            .param("page", "0")
-            .param("size", "10")
-            .param("statuses", "PENDING"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.content[0].user.name").value("Andrei"))
+    mockMvc.perform(
+            get("/api/v1/order").param("page", "0").param("size", "10").param("statuses", "PENDING"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].user.name").value("Andrei"))
         .andExpect(jsonPath("$.content[0].totalPrice").value(testOrder.getTotalPrice().intValue()));
   }
 
@@ -200,46 +194,36 @@ class OrderControllerTest extends IntegrationTestBase {
     itemRepository.deleteAll();
     orderRepository.deleteAll();
 
-    mockMvc.perform(get("/api/v1/order")
-            .param("page", "0")
-            .param("size", "10"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.content").isEmpty());
+    mockMvc.perform(get("/api/v1/order").param("page", "0").param("size", "10"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
   }
 
   @Test
   void getOrders_whenStatusesFilterEmpty_shouldReturnAllOrders() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik",
-            LocalDate.now(), "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/order")
-            .param("page", "0")
-            .param("size", "10"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.content[0].user.name").value("Andrei"));
+    mockMvc.perform(get("/api/v1/order").param("page", "0").param("size", "10"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].user.name").value("Andrei"));
   }
 
   @Test
   void updateOrder_whenValidRequest_shouldReturnUpdatedOrder() throws Exception {
-    Mockito.when(userClient.getUserById(1L))
-        .thenReturn(new UserResponseDto(1L, "Andrei", "ilyutsik",
-            LocalDate.now(), "ilyutsik.adnrei@gmail.com", true));
+    stubUser(1L);
 
     OrderUpdateDto updateDto = new OrderUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(newItem.getId(), 3)));
 
-    MvcResult result = mockMvc.perform(put("/api/v1/order/{id}", testOrder.getId())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(updateDto)))
-        .andExpect(status().isOk())
+    MvcResult result = mockMvc.perform(
+            put("/api/v1/order/{id}", testOrder.getId()).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isOk())
         .andReturn();
 
-    OrderResponseDto response = objectMapper.readValue(
-        result.getResponse().getContentAsString(), OrderResponseDto.class);
+    OrderResponseDto response = objectMapper.readValue(result.getResponse().getContentAsString(),
+        OrderResponseDto.class);
 
     assertThat(response.getUser().getName()).isEqualTo("Andrei");
-    assertThat(response.getTotalPrice()).isEqualByComparingTo(newItem.getPrice().multiply(BigDecimal.valueOf(3)));
+    assertThat(response.getTotalPrice()).isEqualByComparingTo(
+        newItem.getPrice().multiply(BigDecimal.valueOf(3)));
     assertThat(response.getItems().get(0).getItemId()).isEqualTo(newItem.getId());
   }
 
@@ -248,10 +232,8 @@ class OrderControllerTest extends IntegrationTestBase {
     OrderUpdateDto updateDto = new OrderUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(newItem.getId(), 1)));
 
-    mockMvc.perform(put("/api/v1/order/{id}", 999L)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(updateDto)))
-        .andExpect(status().isNotFound())
+    mockMvc.perform(put("/api/v1/order/{id}", 999L).contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
 
@@ -260,10 +242,9 @@ class OrderControllerTest extends IntegrationTestBase {
     OrderUpdateDto updateDto = new OrderUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(999L, 1)));
 
-    mockMvc.perform(put("/api/v1/order/{id}", testOrder.getId())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(updateDto)))
-        .andExpect(status().isNotFound())
+    mockMvc.perform(
+            put("/api/v1/order/{id}", testOrder.getId()).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Item Not Found"));
   }
 
@@ -272,16 +253,14 @@ class OrderControllerTest extends IntegrationTestBase {
     mockMvc.perform(delete("/api/v1/order/{id}", testOrder.getId()))
         .andExpect(status().isNoContent());
 
-    Order deletedOrder = orderRepository.findById(testOrder.getId())
-        .orElseThrow();
+    Order deletedOrder = orderRepository.findById(testOrder.getId()).orElseThrow();
     assertThat(deletedOrder.getDeleted()).isTrue();
   }
 
   @Test
   void deleteOrder_whenNotExists_shouldReturnNotFound() throws Exception {
     long nonExistentId = 9999L;
-    mockMvc.perform(delete("/api/v1/order/{id}", nonExistentId))
-        .andExpect(status().isNotFound())
+    mockMvc.perform(delete("/api/v1/order/{id}", nonExistentId)).andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
 }

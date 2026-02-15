@@ -85,8 +85,7 @@ public class OrderServiceImpl implements OrderService {
   @Transactional(readOnly = true)
   public Page<OrderResponseDto> get(int page, int size, LocalDateTime from, LocalDateTime to,
       List<OrderStatus> statuses) {
-    Specification<Order> spec = Specification
-        .where(OrderSpecifications.notDeleted())
+    Specification<Order> spec = OrderSpecifications.notDeleted()
         .and(OrderSpecifications.createdBetween(from, to))
         .and(OrderSpecifications.hasStatus(statuses));
 
