@@ -55,16 +55,8 @@ dependencies {
 test {
     useJUnitPlatform()
 
-    systemProperty "org.testcontainers", "debug"
-    systemProperty "testcontainers.dockerclient.strategy",
-            "org.testcontainers.dockerclient.UnixSocketClientProviderStrategy"
-
-    environment "TESTCONTAINERS_RYUK_DISABLED", "true"
-    environment "DOCKER_HOST", "unix:///var/run/docker.sock"
-
     testLogging {
         events "passed", "skipped", "failed"
-        showStandardStreams = true
         exceptionFormat = 'full'
     }
 }

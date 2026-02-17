@@ -24,5 +24,4 @@ public class OrderResponseDto {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private List<OrderItemResponseDto> items;
-  private UserResponseDto user;
 }

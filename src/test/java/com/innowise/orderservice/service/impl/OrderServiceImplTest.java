@@ -110,8 +110,6 @@ class OrderServiceImplTest {
     OrderResponseDto result = orderService.create(orderCreateDto, 1L);
 
     assertNotNull(result);
-    assertEquals(1L, result.getUser().getId());
-    assertEquals("John", result.getUser().getName());
     assertEquals(BigDecimal.valueOf(800), result.getTotalPrice());
 
     verify(orderMapper).toEntity(orderCreateDto);

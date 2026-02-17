@@ -41,7 +41,6 @@ public interface OrderMapper {
   @Mapping(target = "userId", source = "userId")
   @Mapping(target = "createdAt", source = "createdAt")
   @Mapping(target = "updatedAt", source = "updatedAt")
-  @Mapping(target = "user", ignore = true)
   OrderResponseDto toDto(Order order);
 
   @Named("orderItemToDto")

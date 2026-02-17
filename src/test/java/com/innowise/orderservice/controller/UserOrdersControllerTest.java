@@ -73,8 +73,8 @@ class UserOrdersControllerTest extends IntegrationTestBase {
 
     mockMvc.perform(get("/api/v1/user/{userId}/orders", 1L))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].userId").value(1))
-        .andExpect(jsonPath("$[0].status").value("PENDING"))
+        .andExpect(jsonPath("$[0].order.userId").value(1))
+        .andExpect(jsonPath("$[0].order.status").value("PENDING"))
         .andExpect(jsonPath("$[0].user.name").value("Andrei"));
   }
 
@@ -93,8 +93,8 @@ class UserOrdersControllerTest extends IntegrationTestBase {
     mockMvc.perform(get("/api/v1/user/orders")
             .header("X-User-Id", 1L))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].userId").value(1))
-        .andExpect(jsonPath("$[0].status").value("PENDING"))
+        .andExpect(jsonPath("$[0].order.userId").value(1))
+        .andExpect(jsonPath("$[0].order.status").value("PENDING"))
         .andExpect(jsonPath("$[0].user.name").value("Andrei"));
   }
 

@@ -3,6 +3,7 @@ package com.innowise.orderservice.controller;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
 import com.innowise.orderservice.model.dto.response.OrderResponseDto;
+import com.innowise.orderservice.model.dto.response.OrderWithUserResponseDto;
 import com.innowise.orderservice.model.dto.response.UserResponseDto;
 import com.innowise.orderservice.model.entity.OrderStatus;
 import com.innowise.orderservice.service.OrderService;
@@ -35,61 +36,59 @@ public class OrderController {
   private final UserServiceClient userServiceClient;
 
   @PostMapping
-  public ResponseEntity<OrderResponseDto> create(@RequestHeader("X-User-Id") Long userId,
+  public ResponseEntity<OrderWithUserResponseDto> create(@RequestHeader("X-User-Id") Long userId,
       @Valid @RequestBody OrderCreateDto request) {
-    OrderResponseDto response = orderService.create(request, userId);
-    return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    OrderResponseDto order = orderService.create(request, userId);
+    UserResponseDto user = userServiceClient.getUserById(userId);
+    return ResponseEntity.status(HttpStatus.CREATED)
+        .body(new OrderWithUserResponseDto(order, user));
   }
 
   @GetMapping("/{id}")
-  public ResponseEntity<OrderResponseDto> getById(@PathVariable("id") Long id) {
-    OrderResponseDto response = orderService.getById(id);
-    UserResponseDto userInfo = userServiceClient.getUserById(response.getUserId());
-    response.setUser(userInfo);
-    return ResponseEntity.status(HttpStatus.OK).body(response);
+  public ResponseEntity<OrderWithUserResponseDto> getById(@PathVariable("id") Long id) {
+    OrderResponseDto order = orderService.getById(id);
+    UserResponseDto user = userServiceClient.getUserById(order.getUserId());
+    return ResponseEntity.status(HttpStatus.OK).body(new OrderWithUserResponseDto(order, user));
   }
 
   @GetMapping
-  public ResponseEntity<Page<OrderResponseDto>> get(@RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size,
+  public ResponseEntity<Page<OrderWithUserResponseDto>> get(
+      @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
       @RequestParam(required = false) List<String> statuses) {
 
-    List<OrderStatus> statusEnums = null;
-    if (statuses != null && !statuses.isEmpty()) {
-      statusEnums = statuses.stream().map(String::toUpperCase).map(OrderStatus::valueOf).toList();
-    }
+    List<OrderStatus> statusEnums = getOrderStatuses(statuses);
 
-    Page<OrderResponseDto> response = orderService.get(page, size, from, to, statusEnums);
+    Page<OrderResponseDto> ordersPage = orderService.get(page, size, from, to, statusEnums);
 
-    Page<OrderResponseDto> responseWithUsers = response.map(order -> {
-      if (order.getUserId() != null) {
-        try {
-          UserResponseDto userInfo = userServiceClient.getUserById(order.getUserId());
-          order.setUser(userInfo);
-        } catch (Exception e) {
-          order.setUser(null);
-        }
-      }
-      return order;
+    Page<OrderWithUserResponseDto> responseWithUsers = ordersPage.map(order -> {
+      UserResponseDto user = userServiceClient.getUserById(order.getUserId());
+      return new OrderWithUserResponseDto(order, user);
     });
 
     return ResponseEntity.status(HttpStatus.OK).body(responseWithUsers);
   }
 
   @PutMapping("/{id}")
-  public ResponseEntity<OrderResponseDto> update(@PathVariable("id") Long id,
+  public ResponseEntity<OrderWithUserResponseDto> update(@PathVariable("id") Long id,
       @Valid @RequestBody OrderUpdateDto updateDto) {
-    OrderResponseDto response = orderService.updateById(id, updateDto);
-    UserResponseDto userInfo = userServiceClient.getUserById(response.getUserId());
-    response.setUser(userInfo);
-    return ResponseEntity.status(HttpStatus.OK).body(response);
+    OrderResponseDto order = orderService.updateById(id, updateDto);
+    UserResponseDto user = userServiceClient.getUserById(order.getUserId());
+    return ResponseEntity.status(HttpStatus.OK).body(new OrderWithUserResponseDto(order, user));
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
     orderService.deleteById(id);
     return ResponseEntity.noContent().build();
+  }
+
+  private static List<OrderStatus> getOrderStatuses(List<String> statuses) {
+    List<OrderStatus> statusEnums = null;
+    if (statuses != null && !statuses.isEmpty()) {
+      statusEnums = statuses.stream().map(String::toUpperCase).map(OrderStatus::valueOf).toList();
+    }
+    return statusEnums;
   }
 }

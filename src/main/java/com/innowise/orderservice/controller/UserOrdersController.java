@@ -1,6 +1,7 @@
 package com.innowise.orderservice.controller;
 
 import com.innowise.orderservice.model.dto.response.OrderResponseDto;
+import com.innowise.orderservice.model.dto.response.OrderWithUserResponseDto;
 import com.innowise.orderservice.model.dto.response.UserResponseDto;
 import com.innowise.orderservice.service.OrderService;
 import com.innowise.orderservice.service.UserServiceClient;
@@ -23,32 +24,22 @@ public class UserOrdersController {
   private final UserServiceClient userServiceClient;
 
   @GetMapping("/{userId}/orders")
-  public ResponseEntity<List<OrderResponseDto>> getByUserId(@PathVariable("userId") Long userId) {
-    return ResponseEntity.status(HttpStatus.OK).body(createOrderResponse(userId));
+  public ResponseEntity<List<OrderWithUserResponseDto>> getByUserId(
+      @PathVariable("userId") Long userId) {
+    return ResponseEntity.status(HttpStatus.OK).body(createOrderWithUserResponse(userId));
   }
 
   @GetMapping("/orders")
-  public ResponseEntity<List<OrderResponseDto>> getUserOrders(
+  public ResponseEntity<List<OrderWithUserResponseDto>> getUserOrders(
       @RequestHeader("X-User-Id") Long userId) {
-    return ResponseEntity.status(HttpStatus.OK).body(createOrderResponse(userId));
+    return ResponseEntity.status(HttpStatus.OK).body(createOrderWithUserResponse(userId));
   }
 
-  private List<OrderResponseDto> createOrderResponse(Long userId) {
-    List<OrderResponseDto> response = orderService.getByUserId(userId);
-    return createResponseWithUsers(response);
-  }
-
-  private List<OrderResponseDto> createResponseWithUsers(List<OrderResponseDto> response) {
-    return response.stream().map(order -> {
-      if (order.getUserId() != null) {
-        try {
-          UserResponseDto userInfo = userServiceClient.getUserById(order.getUserId());
-          order.setUser(userInfo);
-        } catch (Exception e) {
-          order.setUser(null);
-        }
-      }
-      return order;
+  private List<OrderWithUserResponseDto> createOrderWithUserResponse(Long userId) {
+    List<OrderResponseDto> orders = orderService.getByUserId(userId);
+    return orders.stream().map(order -> {
+      UserResponseDto user = userServiceClient.getUserById(order.getUserId());
+      return new OrderWithUserResponseDto(order, user);
     }).toList();
   }
 }

@@ -68,10 +68,7 @@ public class OrderServiceImpl implements OrderService {
 
     Order saved = orderRepository.save(order);
 
-    OrderResponseDto response = orderMapper.toDto(saved);
-    response.setUser(userResponse);
-
-    return response;
+    return orderMapper.toDto(saved);
   }
 
   @Override

@@ -14,7 +14,7 @@ import com.innowise.orderservice.IntegrationTestBase;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
-import com.innowise.orderservice.model.dto.response.OrderResponseDto;
+import com.innowise.orderservice.model.dto.response.OrderWithUserResponseDto;
 import com.innowise.orderservice.model.entity.Item;
 import com.innowise.orderservice.model.entity.Order;
 import com.innowise.orderservice.model.entity.OrderItem;
@@ -97,11 +97,8 @@ class OrderControllerTest extends IntegrationTestBase {
   }
 
   private void stubUser(Long userId) {
-    WireMock.stubFor(WireMock.get("/api/v1/users/" + userId)
-        .willReturn(WireMock
-            .aResponse()
-            .withStatus(200)
-            .withHeader("Content-Type", "application/json")
+    WireMock.stubFor(WireMock.get("/api/v1/users/" + userId).willReturn(
+        WireMock.aResponse().withStatus(200).withHeader("Content-Type", "application/json")
             .withBody("""
                 {
                   "id": %d,
@@ -122,11 +119,11 @@ class OrderControllerTest extends IntegrationTestBase {
             .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isCreated()).andReturn();
 
-    OrderResponseDto response = objectMapper.readValue(result.getResponse().getContentAsString(),
-        OrderResponseDto.class);
+    OrderWithUserResponseDto response = objectMapper.readValue(
+        result.getResponse().getContentAsString(), OrderWithUserResponseDto.class);
 
     assertThat(response.getUser().getName()).isEqualTo("Andrei");
-    assertThat(response.getTotalPrice()).isNotNull();
+    assertThat(response.getOrder().getTotalPrice()).isNotNull();
   }
 
   @Test
@@ -170,7 +167,7 @@ class OrderControllerTest extends IntegrationTestBase {
 
     mockMvc.perform(get("/api/v1/order/{id}", testOrder.getId())).andExpect(status().isOk())
         .andExpect(jsonPath("$.user.name").value("Andrei"))
-        .andExpect(jsonPath("$.totalPrice").value(testOrder.getTotalPrice().intValue()));
+        .andExpect(jsonPath("$.order.totalPrice").value(testOrder.getTotalPrice().intValue()));
   }
 
   @Test
@@ -186,7 +183,7 @@ class OrderControllerTest extends IntegrationTestBase {
     mockMvc.perform(
             get("/api/v1/order").param("page", "0").param("size", "10").param("statuses", "PENDING"))
         .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].user.name").value("Andrei"))
-        .andExpect(jsonPath("$.content[0].totalPrice").value(testOrder.getTotalPrice().intValue()));
+        .andExpect(jsonPath("$.content[0].order.totalPrice").value(testOrder.getTotalPrice().intValue()));
   }
 
   @Test
@@ -218,13 +215,13 @@ class OrderControllerTest extends IntegrationTestBase {
                 .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isOk())
         .andReturn();
 
-    OrderResponseDto response = objectMapper.readValue(result.getResponse().getContentAsString(),
-        OrderResponseDto.class);
+    OrderWithUserResponseDto response = objectMapper.readValue(
+        result.getResponse().getContentAsString(), OrderWithUserResponseDto.class);
 
     assertThat(response.getUser().getName()).isEqualTo("Andrei");
-    assertThat(response.getTotalPrice()).isEqualByComparingTo(
+    assertThat(response.getOrder().getTotalPrice()).isEqualByComparingTo(
         newItem.getPrice().multiply(BigDecimal.valueOf(3)));
-    assertThat(response.getItems().get(0).getItemId()).isEqualTo(newItem.getId());
+    assertThat(response.getOrder().getItems().get(0).getItemId()).isEqualTo(newItem.getId());
   }
 
   @Test
