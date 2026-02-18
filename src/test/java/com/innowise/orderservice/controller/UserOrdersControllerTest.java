@@ -71,7 +71,7 @@ class UserOrdersControllerTest extends IntegrationTestBase {
   void getByUserId_whenUserHasOrders_shouldReturnOrders() throws Exception {
     stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/user/{userId}/orders", 1L))
+    mockMvc.perform(get("/api/v1/users/{userId}/orders", 1L))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].order.userId").value(1))
         .andExpect(jsonPath("$[0].order.status").value("PENDING"))
@@ -81,7 +81,7 @@ class UserOrdersControllerTest extends IntegrationTestBase {
   @Test
   void getByUserId_whenUserNotExist_shouldThrowUserNotFound() throws Exception {
     long nonExistentUserId = 999L;
-    mockMvc.perform(get("/api/v1/user/{userId}/orders", nonExistentUserId))
+    mockMvc.perform(get("/api/v1/users/{userId}/orders", nonExistentUserId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("User Not Found"));
   }
@@ -90,7 +90,7 @@ class UserOrdersControllerTest extends IntegrationTestBase {
   void getUserOrders_whenUserHasOrders_shouldReturnOrders() throws Exception {
     stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/user/orders")
+    mockMvc.perform(get("/api/v1/users/orders")
             .header("X-User-Id", 1L))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].order.userId").value(1))
@@ -101,7 +101,7 @@ class UserOrdersControllerTest extends IntegrationTestBase {
   @Test
   void getUserOrders_whenUserNotExist_shouldReturn404() throws Exception {
     long nonExistentUserId = 999L;
-    mockMvc.perform(get("/api/v1/user/orders")
+    mockMvc.perform(get("/api/v1/users/orders")
             .header("X-User-Id", nonExistentUserId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("User Not Found"));

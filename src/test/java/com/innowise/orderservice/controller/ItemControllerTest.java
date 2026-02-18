@@ -55,7 +55,7 @@ class ItemControllerTest extends IntegrationTestBase {
 
   @Test
   void create_whenValidRequest_shouldReturnCreatedItem() throws Exception {
-    mockMvc.perform(post("/api/v1/item")
+    mockMvc.perform(post("/api/v1/items")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(testItemCreateDto)))
         .andExpect(status().isCreated())
@@ -69,7 +69,7 @@ class ItemControllerTest extends IntegrationTestBase {
     request.setName("");
     request.setPrice(BigDecimal.valueOf(15));
 
-    mockMvc.perform(post("/api/v1/item")
+    mockMvc.perform(post("/api/v1/items")
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isBadRequest())
@@ -78,7 +78,7 @@ class ItemControllerTest extends IntegrationTestBase {
 
   @Test
   void getById_whenItemExists_shouldReturnItem() throws Exception {
-    mockMvc.perform(get("/api/v1/item/{id}", testItem.getId())
+    mockMvc.perform(get("/api/v1/items/{id}", testItem.getId())
             .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(testItem.getId()))
@@ -89,7 +89,7 @@ class ItemControllerTest extends IntegrationTestBase {
   @Test
   void getById_whenItemDoesNotExist_shouldReturnNotFound() throws Exception {
     Long nonExistentId = 999L;
-    mockMvc.perform(get("/api/v1/item/{id}", nonExistentId)
+    mockMvc.perform(get("/api/v1/items/{id}", nonExistentId)
             .contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Item Not Found"));
@@ -101,7 +101,7 @@ class ItemControllerTest extends IntegrationTestBase {
     updateDto.setName("updatedCar");
     updateDto.setPrice(BigDecimal.valueOf(20));
 
-    mockMvc.perform(put("/api/v1/item/{id}", testItem.getId())
+    mockMvc.perform(put("/api/v1/items/{id}", testItem.getId())
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(updateDto)))
         .andExpect(status().isOk())
@@ -117,7 +117,7 @@ class ItemControllerTest extends IntegrationTestBase {
     updateDto.setName("updatedCar");
     updateDto.setPrice(BigDecimal.valueOf(20));
 
-    mockMvc.perform(put("/api/v1/item/{id}", nonExistentId)
+    mockMvc.perform(put("/api/v1/items/{id}", nonExistentId)
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(updateDto)))
         .andExpect(status().isNotFound())
@@ -126,7 +126,7 @@ class ItemControllerTest extends IntegrationTestBase {
 
   @Test
   void delete_whenItemExists_shouldReturnNoContent() throws Exception {
-    mockMvc.perform(delete("/api/v1/item/{id}", testItem.getId()))
+    mockMvc.perform(delete("/api/v1/items/{id}", testItem.getId()))
         .andExpect(status().isNoContent());
 
     Optional<Item> deleted = itemRepository.findById(testItem.getId());
@@ -136,7 +136,7 @@ class ItemControllerTest extends IntegrationTestBase {
   @Test
   void delete_whenItemDoesNotExist_shouldReturnNotFound() throws Exception {
     Long nonExistentId = 999L;
-    mockMvc.perform(delete("/api/v1/item/{id}", nonExistentId))
+    mockMvc.perform(delete("/api/v1/items/{id}", nonExistentId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Item Not Found"));
   }
