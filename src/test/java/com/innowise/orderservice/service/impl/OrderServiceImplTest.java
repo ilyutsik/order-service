@@ -141,7 +141,7 @@ class OrderServiceImplTest {
 
   @Test
   void getById_shouldReturnOrderResponseDto_whenOrderExists() {
-    when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(order));
 
     OrderResponseDto result = orderService.getById(1L);
 
@@ -152,17 +152,17 @@ class OrderServiceImplTest {
     assertEquals(1L, result.getUserId());
 
     verify(orderMapper).toDto(order);
-    verify(orderRepository).findById(1L);
+    verify(orderRepository).findByIdAndDeletedFalse(1L);
   }
 
   @Test
   void getById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
-    when(orderRepository.findById(1L)).thenReturn(Optional.empty());
+    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
 
     assertThrows(OrderNotFoundException.class,
         () -> orderService.getById(1L));
 
-    verify(orderRepository, times(1)).findById(1L);
+    verify(orderRepository, times(1)).findByIdAndDeletedFalse(1L);
     verifyNoInteractions(orderMapper);
   }
 
@@ -233,7 +233,7 @@ class OrderServiceImplTest {
   void updateById_shouldUpdateOrder_whenOrderExists() {
     order.setOrderItems(new ArrayList<>());
 
-    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.findByIdAndDeletedFalse(order.getId())).thenReturn(Optional.of(order));
     when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
     when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -246,20 +246,20 @@ class OrderServiceImplTest {
     assertEquals(2, result.getItems().get(0).getQuantity());
     assertEquals(order.getUserId(), result.getUserId());
 
-    verify(orderRepository).findById(order.getId());
+    verify(orderRepository).findByIdAndDeletedFalse(order.getId());
     verify(orderRepository).save(order);
   }
 
   @Test
   void updateById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
     Long orderId = 999L;
-    when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+    when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.empty());
 
    assertThrows(OrderNotFoundException.class,
         () -> orderService.updateById(orderId, updateDto));
 
 
-    verify(orderRepository, times(1)).findById(orderId);
+    verify(orderRepository, times(1)).findByIdAndDeletedFalse(orderId);
     verify(orderRepository, never()).save(any());
   }
 
@@ -272,35 +272,35 @@ class OrderServiceImplTest {
           setOrder(order);
         }}
     ));
-    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.findByIdAndDeletedFalse(order.getId())).thenReturn(Optional.of(order));
     when(itemRepository.findById(1L)).thenReturn(Optional.empty());
 
     Long orderId = order.getId();
     assertThrows(ItemNotFoundException.class,
         () -> orderService.updateById(orderId, updateDto));
 
-    verify(orderRepository, times(1)).findById(order.getId());
+    verify(orderRepository, times(1)).findByIdAndDeletedFalse(order.getId());
     verify(orderRepository, never()).save(any());
   }
 
   @Test
   void deleteById_shouldReturnVoid_whenOrderExists() {
-    when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(order));
 
     orderService.deleteById(1L);
 
-    verify(orderRepository).findById(1L);
+    verify(orderRepository).findByIdAndDeletedFalse(1L);
     verify(orderRepository).delete(any(Order.class));
   }
 
   @Test
   void deleteById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
-    when(orderRepository.findById(1L)).thenReturn(Optional.empty());
+    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
 
     assertThrows(OrderNotFoundException.class,
         () -> orderService.deleteById(1L));
 
-    verify(orderRepository, times(1)).findById(1L);
+    verify(orderRepository, times(1)).findByIdAndDeletedFalse(1L);
     verify(orderRepository, times(0)).delete(any(Order.class));
   }
 }

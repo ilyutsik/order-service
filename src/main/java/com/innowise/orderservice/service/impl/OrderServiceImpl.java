@@ -74,7 +74,7 @@ public class OrderServiceImpl implements OrderService {
   @Override
   @Transactional(readOnly = true)
   public OrderResponseDto getById(Long id) {
-    return orderMapper.toDto(orderRepository.findById(id)
+    return orderMapper.toDto(orderRepository.findByIdAndDeletedFalse(id)
         .orElseThrow(() -> new OrderNotFoundException("id", id.toString())));
   }
 
@@ -102,7 +102,7 @@ public class OrderServiceImpl implements OrderService {
 
   @Override
   public OrderResponseDto updateById(Long id, OrderUpdateDto updateDto) {
-    Order updatedOrder = orderRepository.findById(id)
+    Order updatedOrder = orderRepository.findByIdAndDeletedFalse(id)
         .orElseThrow(() -> new OrderNotFoundException("id", id.toString()));
 
     List<OrderItem> newItems = updateDto.getItems().stream().map(dtoItem -> {
@@ -128,7 +128,7 @@ public class OrderServiceImpl implements OrderService {
 
   @Override
   public void deleteById(Long id) {
-    Order order = orderRepository.findById(id)
+    Order order = orderRepository.findByIdAndDeletedFalse(id)
         .orElseThrow(() -> new OrderNotFoundException("id", id.toString()));
 
     orderRepository.delete(order);
