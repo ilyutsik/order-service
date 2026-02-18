@@ -13,6 +13,6 @@ public class ErrorResponse {
 
   private int status;
   private String error;
-  private String massage;
+  private String message;
 }
 

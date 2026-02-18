@@ -16,10 +16,13 @@ import com.innowise.orderservice.exception.ItemNotFoundException;
 import com.innowise.orderservice.exception.OrderNotFoundException;
 import com.innowise.orderservice.exception.UserNotFoundException;
 import com.innowise.orderservice.mapper.OrderMapper;
+import com.innowise.orderservice.mapper.OrderMapperImpl;
+import com.innowise.orderservice.model.UserContext;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemCreateDto;
-import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
-import com.innowise.orderservice.model.dto.response.OrderResponseDto;
+import com.innowise.orderservice.model.dto.request.OrderItemUpdateDto;
+import com.innowise.orderservice.model.dto.request.OrderStatusUpdateDto;
+import com.innowise.orderservice.model.dto.response.OrderWithUserResponseDto;
 import com.innowise.orderservice.model.dto.response.UserResponseDto;
 import com.innowise.orderservice.model.entity.Item;
 import com.innowise.orderservice.model.entity.Order;
@@ -72,7 +75,10 @@ class OrderServiceImplTest {
   private Order order;
   private UserResponseDto userResponse;
 
-  private OrderUpdateDto updateDto;
+  private OrderItemUpdateDto itemUpdateDto;
+
+  private OrderStatusUpdateDto statusUpdateDto;
+
 
   @BeforeEach
   void setUp() {
@@ -97,8 +103,11 @@ class OrderServiceImplTest {
     userResponse.setId(1L);
     userResponse.setName("John");
 
-    updateDto = new OrderUpdateDto();
-    updateDto.setItems(List.of(new OrderItemCreateDto(1L, 2)));
+    itemUpdateDto = new OrderItemUpdateDto();
+    itemUpdateDto.setItems(List.of(new OrderItemCreateDto(1L, 2)));
+
+    statusUpdateDto = new OrderStatusUpdateDto();
+    statusUpdateDto.setStatus(OrderStatus.PAID);
   }
 
   @Test
@@ -107,10 +116,10 @@ class OrderServiceImplTest {
     when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
     when(orderRepository.save(any(Order.class))).thenAnswer(i -> i.getArguments()[0]);
 
-    OrderResponseDto result = orderService.create(orderCreateDto, 1L);
+    OrderWithUserResponseDto result = orderService.create(orderCreateDto, 1L);
 
     assertNotNull(result);
-    assertEquals(BigDecimal.valueOf(800), result.getTotalPrice());
+    assertEquals(BigDecimal.valueOf(800), result.getOrder().getTotalPrice());
 
     verify(orderMapper).toEntity(orderCreateDto);
     verify(orderMapper).toDto(any(Order.class));
@@ -119,18 +128,14 @@ class OrderServiceImplTest {
 
   @Test
   void create_userNotFound() {
-    when(userServiceClient.getUserById(1L)).thenReturn(null);
-
     assertThrows(UserNotFoundException.class,
-        () -> orderService.create(orderCreateDto, 1L));
-
-    verify(userServiceClient, times(1)).getUserById(1L);
+        () -> orderService.create(orderCreateDto, 123L));
   }
 
   @Test
   void create_itemNotFound() {
     when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
-
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
     when(itemRepository.findById(any(Long.class))).thenReturn(Optional.empty());
 
     assertThrows(ItemNotFoundException.class,
@@ -141,28 +146,29 @@ class OrderServiceImplTest {
 
   @Test
   void getById_shouldReturnOrderResponseDto_whenOrderExists() {
-    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(order));
+    when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
-    OrderResponseDto result = orderService.getById(1L);
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
+    OrderWithUserResponseDto result = orderService.getById(1L);
 
     assertNotNull(result);
-    assertEquals(1L, result.getId());
-    assertEquals(OrderStatus.PENDING, result.getStatus());
-    assertEquals(BigDecimal.valueOf(100), result.getTotalPrice());
-    assertEquals(1L, result.getUserId());
+    assertEquals(1L, result.getOrder().getId());
+    assertEquals(OrderStatus.PENDING, result.getOrder().getStatus());
+    assertEquals(BigDecimal.valueOf(100), result.getOrder().getTotalPrice());
+    assertEquals(1L, result.getUser().getId());
 
     verify(orderMapper).toDto(order);
-    verify(orderRepository).findByIdAndDeletedFalse(1L);
+    verify(orderRepository).findById(1L);
   }
 
   @Test
   void getById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
-    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+    when(orderRepository.findById(1L)).thenReturn(Optional.empty());
 
     assertThrows(OrderNotFoundException.class,
         () -> orderService.getById(1L));
 
-    verify(orderRepository, times(1)).findByIdAndDeletedFalse(1L);
+    verify(orderRepository, times(1)).findById(1L);
     verifyNoInteractions(orderMapper);
   }
 
@@ -172,14 +178,15 @@ class OrderServiceImplTest {
     Page<Order> ordersPage = new PageImpl<>(List.of(order), pageable, 1);
 
     when(orderRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(ordersPage);
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
 
-    Page<OrderResponseDto> result = orderService.get(0, 10, LocalDateTime.now().minusDays(1),
+    Page<OrderWithUserResponseDto> result = orderService.get(0, 10, LocalDateTime.now().minusDays(1),
         LocalDateTime.now(), List.of(OrderStatus.PENDING));
 
     assertNotNull(result);
     assertEquals(1, result.getTotalElements());
-    assertEquals(order.getId(), result.getContent().get(0).getId());
-    assertEquals(order.getStatus(), result.getContent().get(0).getStatus());
+    assertEquals(order.getId(), result.getContent().get(0).getOrder().getId());
+    assertEquals(order.getStatus(), result.getContent().get(0).getOrder().getStatus());
 
     verify(orderRepository).findAll(any(Specification.class), eq(pageable));
     verify(orderMapper).toDto(order);
@@ -191,7 +198,7 @@ class OrderServiceImplTest {
     Page<Order> emptyPage = new PageImpl<>(List.of(), pageable, 0);
     when(orderRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(emptyPage);
 
-    Page<OrderResponseDto> result = orderService.get(0, 10, LocalDateTime.now().minusDays(1),
+    Page<OrderWithUserResponseDto> result = orderService.get(0, 10, LocalDateTime.now().minusDays(1),
         LocalDateTime.now(), List.of(OrderStatus.PENDING));
 
     assertNotNull(result);
@@ -204,67 +211,70 @@ class OrderServiceImplTest {
 
   @Test
   void getByUserId_shouldReturnOrderResponseDto_whenUserExists() {
-    when(orderRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(List.of(order));
+    when(orderRepository.findByUserId(1L)).thenReturn(List.of(order));
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
 
-    List<OrderResponseDto> result = orderService.getByUserId(1L);
+    List<OrderWithUserResponseDto> result = orderService.getByUserId(1L);
 
     assertNotNull(result);
-    assertEquals(1L, result.getFirst().getId());
-    assertEquals(OrderStatus.PENDING, result.getFirst().getStatus());
-    assertEquals(BigDecimal.valueOf(100), result.getFirst().getTotalPrice());
-    assertEquals(1L, result.getFirst().getUserId());
+    assertEquals(1L, result.getFirst().getOrder().getId());
+    assertEquals(OrderStatus.PENDING, result.getFirst().getOrder().getStatus());
+    assertEquals(BigDecimal.valueOf(100), result.getFirst().getOrder().getTotalPrice());
+    assertEquals(1L, result.getFirst().getUser().getId());
 
     verify(orderMapper).toDto(order);
-    verify(orderRepository).findByUserIdAndDeletedFalse(1L);
+    verify(orderRepository).findByUserId(1L);
   }
 
   @Test
-  void getByUserId_shouldThrowOrderNotFoundException_whenUserDoesNotExist() {
-    when(orderRepository.findByUserIdAndDeletedFalse(1L)).thenReturn(List.of());
+  void getByUserId_shouldThrowUserNotFoundException_whenUserDoesNotExist() {
+    when(orderRepository.findByUserId(1L)).thenReturn(List.of());
+    when(userServiceClient.getUserById(1L)).thenReturn(null);
 
     assertThrows(UserNotFoundException.class,
         () -> orderService.getByUserId(1L));
 
-    verify(orderRepository, times(1)).findByUserIdAndDeletedFalse(1L);
+    verify(orderRepository, times(1)).findByUserId(1L);
     verifyNoInteractions(orderMapper);
   }
 
   @Test
-  void updateById_shouldUpdateOrder_whenOrderExists() {
+  void updateItemById_shouldUpdateOrder_whenOrderExists() {
     order.setOrderItems(new ArrayList<>());
 
-    when(orderRepository.findByIdAndDeletedFalse(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
     when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
 
-    OrderResponseDto result = orderService.updateById(order.getId(), updateDto);
+    OrderWithUserResponseDto result = orderService.updateItemById(order.getId(), itemUpdateDto);
 
     assertNotNull(result);
-    assertEquals(order.getId(), result.getId());
-    assertNotNull(result.getItems());
-    assertEquals(1, result.getItems().size());
-    assertEquals(2, result.getItems().get(0).getQuantity());
-    assertEquals(order.getUserId(), result.getUserId());
+    assertEquals(order.getId(), result.getOrder().getId());
+    assertNotNull(result.getOrder().getItems());
+    assertEquals(1, result.getOrder().getItems().size());
+    assertEquals(2, result.getOrder().getItems().get(0).getQuantity());
+    assertEquals(order.getUserId(), result.getUser().getId());
 
-    verify(orderRepository).findByIdAndDeletedFalse(order.getId());
+    verify(orderRepository).findById(order.getId());
     verify(orderRepository).save(order);
   }
 
   @Test
-  void updateById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
+  void updateItemById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
     Long orderId = 999L;
-    when(orderRepository.findByIdAndDeletedFalse(orderId)).thenReturn(Optional.empty());
+    when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
    assertThrows(OrderNotFoundException.class,
-        () -> orderService.updateById(orderId, updateDto));
+        () -> orderService.updateItemById(orderId, itemUpdateDto));
 
 
-    verify(orderRepository, times(1)).findByIdAndDeletedFalse(orderId);
+    verify(orderRepository, times(1)).findById(orderId);
     verify(orderRepository, never()).save(any());
   }
 
   @Test
-  void updateById_shouldThrowItemNotFoundException_whenItemDoesNotExist() {
+  void updateItemById_shouldThrowItemNotFoundException_whenItemDoesNotExist() {
     order.setOrderItems(List.of(
         new OrderItem() {{
           setItem(new Item() {{ setId(1L); setPrice(BigDecimal.valueOf(100)); }});
@@ -272,35 +282,64 @@ class OrderServiceImplTest {
           setOrder(order);
         }}
     ));
-    when(orderRepository.findByIdAndDeletedFalse(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(itemRepository.findById(1L)).thenReturn(Optional.empty());
 
     Long orderId = order.getId();
     assertThrows(ItemNotFoundException.class,
-        () -> orderService.updateById(orderId, updateDto));
+        () -> orderService.updateItemById(orderId, itemUpdateDto));
 
-    verify(orderRepository, times(1)).findByIdAndDeletedFalse(order.getId());
+    verify(orderRepository, times(1)).findById(order.getId());
+    verify(orderRepository, never()).save(any());
+  }
+
+  @Test
+  void updateStatusById_shouldUpdateOrder_whenOrderExists() {
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
+
+    OrderWithUserResponseDto result = orderService.updateStatusById(order.getId(), statusUpdateDto);
+
+    assertNotNull(result);
+    assertEquals(order.getId(), result.getOrder().getId());
+    assertEquals(statusUpdateDto.getStatus(), result.getOrder().getStatus());
+
+    verify(orderRepository).findById(order.getId());
+    verify(orderRepository).save(order);
+  }
+
+  @Test
+  void updateStatusById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
+    Long orderId = 999L;
+    when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+    assertThrows(OrderNotFoundException.class,
+        () -> orderService.updateStatusById(orderId, statusUpdateDto));
+
+
+    verify(orderRepository, times(1)).findById(orderId);
     verify(orderRepository, never()).save(any());
   }
 
   @Test
   void deleteById_shouldReturnVoid_whenOrderExists() {
-    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(order));
+    when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
     orderService.deleteById(1L);
 
-    verify(orderRepository).findByIdAndDeletedFalse(1L);
+    verify(orderRepository).findById(1L);
     verify(orderRepository).delete(any(Order.class));
   }
 
   @Test
   void deleteById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
-    when(orderRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.empty());
+    when(orderRepository.findById(1L)).thenReturn(Optional.empty());
 
     assertThrows(OrderNotFoundException.class,
         () -> orderService.deleteById(1L));
 
-    verify(orderRepository, times(1)).findByIdAndDeletedFalse(1L);
+    verify(orderRepository, times(1)).findById(1L);
     verify(orderRepository, times(0)).delete(any(Order.class));
   }
 }

@@ -1,7 +1,7 @@
 package com.innowise.orderservice.mapper;
 
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
-import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
+import com.innowise.orderservice.model.dto.request.OrderItemUpdateDto;
 import com.innowise.orderservice.model.dto.response.OrderItemResponseDto;
 import com.innowise.orderservice.model.dto.response.OrderResponseDto;
 import com.innowise.orderservice.model.entity.Order;
@@ -25,17 +25,6 @@ public interface OrderMapper {
   @Mapping(target = "updatedAt", ignore = true)
   Order toEntity(OrderCreateDto dto);
 
-  @Mapping(target = "userId", ignore = true)
-  @Mapping(target = "status", ignore = true)
-  @Mapping(target = "totalPrice", ignore = true)
-  @Mapping(target = "id", ignore = true)
-  @Mapping(target = "deleted", ignore = true)
-  @Mapping(target = "orderItems", ignore = true)
-  @Mapping(target = "createdAt", ignore = true)
-  @Mapping(target = "updatedAt", ignore = true)
-  Order toEntity(OrderUpdateDto dto);
-
-
   @Named("orderToDto")
   @Mapping(target = "items", source = "orderItems")
   @Mapping(target = "userId", source = "userId")
@@ -49,9 +38,6 @@ public interface OrderMapper {
   @Mapping(target = "itemPrice", source = "item.price")
   @Mapping(target = "orderId", source = "order.id")
   OrderItemResponseDto toDto(OrderItem entity);
-
-  @IterableMapping(qualifiedByName = "orderToDto")
-  List<OrderResponseDto> toOrderDtoList(List<Order> orderList);
 
   @IterableMapping(qualifiedByName = "orderItemToDto")
   List<OrderItemResponseDto> toOrderItemDtoList(List<OrderItem> orderItems);

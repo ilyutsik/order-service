@@ -32,8 +32,4 @@ public class OrderSpecifications {
         ? cb.conjunction()
         : root.get("status").in(statuses);
   }
-
-  public static Specification<Order> notDeleted() {
-    return (root, query, cb) -> cb.isFalse(root.get("deleted"));
-  }
 }

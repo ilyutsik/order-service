@@ -2,7 +2,6 @@ package com.innowise.orderservice.repository;
 
 import com.innowise.orderservice.model.entity.Order;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,6 +12,6 @@ import org.springframework.stereotype.Repository;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
   Page<Order> findAll(Specification<Order> spec, Pageable pageable);
-  List<Order> findByUserIdAndDeletedFalse(Long userId);
-  Optional<Order> findByIdAndDeletedFalse(Long id);
+
+  List<Order> findByUserId(Long userId);
 }

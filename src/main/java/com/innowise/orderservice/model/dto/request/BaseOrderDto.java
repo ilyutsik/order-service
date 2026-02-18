@@ -14,7 +14,7 @@ import lombok.ToString;
 @ToString
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderUpdateDto {
+public abstract class BaseOrderDto {
 
   @NotEmpty(message = "Order must contain at least one item")
   @Valid

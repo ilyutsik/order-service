@@ -25,13 +25,11 @@ public class UserServiceClientImpl implements UserServiceClient {
     return userClient.getUserById(id);
   }
 
-  @Override
-  public UserResponseDto userFallbackByEmail(String email, Throwable t) {
+  private UserResponseDto userFallbackByEmail(String email, Throwable t) {
     return null;
   }
 
-  @Override
-  public UserResponseDto userFallbackById(Long id, Throwable t) {
+  private UserResponseDto userFallbackById(Long id, Throwable t) {
     return null;
   }
 }

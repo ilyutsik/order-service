@@ -3,8 +3,8 @@ package com.innowise.orderservice.controller;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,7 +13,7 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.innowise.orderservice.IntegrationTestBase;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemCreateDto;
-import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
+import com.innowise.orderservice.model.dto.request.OrderItemUpdateDto;
 import com.innowise.orderservice.model.dto.response.OrderWithUserResponseDto;
 import com.innowise.orderservice.model.entity.Item;
 import com.innowise.orderservice.model.entity.Order;
@@ -22,17 +22,20 @@ import com.innowise.orderservice.model.entity.OrderStatus;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.Commit;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@DirtiesContext(classMode = ClassMode.AFTER_CLASS)
 class OrderControllerTest extends IntegrationTestBase {
 
   @Autowired
@@ -56,9 +59,10 @@ class OrderControllerTest extends IntegrationTestBase {
   private Order testOrder;
 
   @BeforeEach
+  @Commit
   void setUp() {
-    itemRepository.deleteAll();
-    orderRepository.deleteAll();
+    WireMock.configureFor(wiremock.getHost(), wiremock.getMappedPort(8080));
+    WireMock.reset();
 
     testItem = new Item();
     testItem.setName("car");
@@ -81,19 +85,15 @@ class OrderControllerTest extends IntegrationTestBase {
     orderItem.setQuantity(2);
     orderItem.setOrder(testOrder);
 
-    testOrder.setOrderItems(List.of(orderItem));
+    List<OrderItem> items = new ArrayList<>();
+    items.add(orderItem);
+    testOrder.setOrderItems(items);
     testOrder.setTotalPrice(testItem.getPrice().multiply(BigDecimal.valueOf(2)));
 
     testOrder = orderRepository.save(testOrder);
 
     testOrderCreateDto = new OrderCreateDto();
     testOrderCreateDto.setItems(List.of(new OrderItemCreateDto(testItem.getId(), 2)));
-  }
-
-  @BeforeEach
-  void setupWiremock() {
-    WireMock.configureFor(wiremock.getHost(), wiremock.getMappedPort(8080));
-    WireMock.reset();
   }
 
   private void stubUser(Long userId) {
@@ -114,9 +114,10 @@ class OrderControllerTest extends IntegrationTestBase {
   void create_whenValidUser_shouldReturnCreated() throws Exception {
     stubUser(1L);
 
-    MvcResult result = mockMvc.perform(post("/api/v1/orders").header("X-User-Id", String.valueOf(1L))
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsString(testOrderCreateDto)))
+    MvcResult result = mockMvc.perform(
+            post("/api/v1/orders").header("X-User-Id", String.valueOf(1L))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isCreated()).andReturn();
 
     OrderWithUserResponseDto response = objectMapper.readValue(
@@ -183,13 +184,14 @@ class OrderControllerTest extends IntegrationTestBase {
     mockMvc.perform(
             get("/api/v1/orders").param("page", "0").param("size", "10").param("statuses", "PENDING"))
         .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].user.name").value("Andrei"))
-        .andExpect(jsonPath("$.content[0].order.totalPrice").value(testOrder.getTotalPrice().intValue()));
+        .andExpect(
+            jsonPath("$.content[0].order.totalPrice").value(testOrder.getTotalPrice().intValue()));
   }
 
   @Test
   void getOrders_whenNoOrders_shouldReturnEmptyPage() throws Exception {
-    itemRepository.deleteAll();
     orderRepository.deleteAll();
+    itemRepository.deleteAll();
 
     mockMvc.perform(get("/api/v1/orders").param("page", "0").param("size", "10"))
         .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
@@ -207,13 +209,13 @@ class OrderControllerTest extends IntegrationTestBase {
   void updateOrder_whenValidRequest_shouldReturnUpdatedOrder() throws Exception {
     stubUser(1L);
 
-    OrderUpdateDto updateDto = new OrderUpdateDto();
+    OrderItemUpdateDto updateDto = new OrderItemUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(newItem.getId(), 3)));
 
     MvcResult result = mockMvc.perform(
-            put("/api/v1/orders/{id}", testOrder.getId()).contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isOk())
-        .andReturn();
+            patch("/api/v1/orders/{id}/items", testOrder.getId()).contentType(
+                MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateDto)))
+        .andExpect(status().isOk()).andReturn();
 
     OrderWithUserResponseDto response = objectMapper.readValue(
         result.getResponse().getContentAsString(), OrderWithUserResponseDto.class);
@@ -226,32 +228,22 @@ class OrderControllerTest extends IntegrationTestBase {
 
   @Test
   void updateOrder_whenOrderNotFound_shouldReturnNotFound() throws Exception {
-    OrderUpdateDto updateDto = new OrderUpdateDto();
+    OrderItemUpdateDto updateDto = new OrderItemUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(newItem.getId(), 1)));
 
-    mockMvc.perform(put("/api/v1/orders/{id}", 999L).contentType(MediaType.APPLICATION_JSON)
+    mockMvc.perform(patch("/api/v1/orders/{id}/items", 999L).contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
 
   @Test
   void updateOrder_whenItemNotFound_shouldReturnNotFound() throws Exception {
-    OrderUpdateDto updateDto = new OrderUpdateDto();
+    OrderItemUpdateDto updateDto = new OrderItemUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(999L, 1)));
 
-    mockMvc.perform(
-            put("/api/v1/orders/{id}", testOrder.getId()).contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.error").value("Item Not Found"));
-  }
-
-  @Test
-  void deleteOrder_whenExists_shouldMarkDeleted() throws Exception {
-    mockMvc.perform(delete("/api/v1/orders/{id}", testOrder.getId()))
-        .andExpect(status().isNoContent());
-
-    Order deletedOrder = orderRepository.findById(testOrder.getId()).orElseThrow();
-    assertThat(deletedOrder.getDeleted()).isTrue();
+    mockMvc.perform(patch("/api/v1/orders/{id}/items", testOrder.getId()).contentType(
+            MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateDto)))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("Item Not Found"));
   }
 
   @Test

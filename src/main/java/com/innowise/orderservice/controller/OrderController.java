@@ -1,10 +1,9 @@
 package com.innowise.orderservice.controller;
 
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
-import com.innowise.orderservice.model.dto.request.OrderUpdateDto;
-import com.innowise.orderservice.model.dto.response.OrderResponseDto;
+import com.innowise.orderservice.model.dto.request.OrderItemUpdateDto;
+import com.innowise.orderservice.model.dto.request.OrderStatusUpdateDto;
 import com.innowise.orderservice.model.dto.response.OrderWithUserResponseDto;
-import com.innowise.orderservice.model.dto.response.UserResponseDto;
 import com.innowise.orderservice.model.entity.OrderStatus;
 import com.innowise.orderservice.service.OrderService;
 import com.innowise.orderservice.service.UserServiceClient;
@@ -18,9 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,17 +37,14 @@ public class OrderController {
   @PostMapping
   public ResponseEntity<OrderWithUserResponseDto> create(@RequestHeader("X-User-Id") Long userId,
       @Valid @RequestBody OrderCreateDto request) {
-    OrderResponseDto order = orderService.create(request, userId);
-    UserResponseDto user = userServiceClient.getUserById(userId);
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(new OrderWithUserResponseDto(order, user));
+    OrderWithUserResponseDto response = orderService.create(request, userId);
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @GetMapping("/{id}")
   public ResponseEntity<OrderWithUserResponseDto> getById(@PathVariable("id") Long id) {
-    OrderResponseDto order = orderService.getById(id);
-    UserResponseDto user = userServiceClient.getUserById(order.getUserId());
-    return ResponseEntity.status(HttpStatus.OK).body(new OrderWithUserResponseDto(order, user));
+    OrderWithUserResponseDto response = orderService.getById(id);
+    return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
   @GetMapping
@@ -56,39 +52,30 @@ public class OrderController {
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-      @RequestParam(required = false) List<String> statuses) {
+      @RequestParam(required = false) List<OrderStatus> statuses) {
 
-    List<OrderStatus> statusEnums = getOrderStatuses(statuses);
+    Page<OrderWithUserResponseDto> response = orderService.get(page, size, from, to, statuses);
 
-    Page<OrderResponseDto> ordersPage = orderService.get(page, size, from, to, statusEnums);
-
-    Page<OrderWithUserResponseDto> responseWithUsers = ordersPage.map(order -> {
-      UserResponseDto user = userServiceClient.getUserById(order.getUserId());
-      return new OrderWithUserResponseDto(order, user);
-    });
-
-    return ResponseEntity.status(HttpStatus.OK).body(responseWithUsers);
+    return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
-  @PutMapping("/{id}")
-  public ResponseEntity<OrderWithUserResponseDto> update(@PathVariable("id") Long id,
-      @Valid @RequestBody OrderUpdateDto updateDto) {
-    OrderResponseDto order = orderService.updateById(id, updateDto);
-    UserResponseDto user = userServiceClient.getUserById(order.getUserId());
-    return ResponseEntity.status(HttpStatus.OK).body(new OrderWithUserResponseDto(order, user));
+  @PatchMapping("/{id}/items")
+  public ResponseEntity<OrderWithUserResponseDto> updateItems(@PathVariable("id") Long id,
+      @Valid @RequestBody OrderItemUpdateDto updateDto) {
+    OrderWithUserResponseDto response = orderService.updateItemById(id, updateDto);
+    return ResponseEntity.status(HttpStatus.OK).body(response);
+  }
+
+  @PatchMapping("/{id}/status")
+  public ResponseEntity<OrderWithUserResponseDto> updateStatus(@PathVariable("id") Long id,
+      @Valid @RequestBody OrderStatusUpdateDto updateDto) {
+    OrderWithUserResponseDto response = orderService.updateStatusById(id, updateDto);
+    return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
     orderService.deleteById(id);
     return ResponseEntity.noContent().build();
-  }
-
-  private static List<OrderStatus> getOrderStatuses(List<String> statuses) {
-    List<OrderStatus> statusEnums = null;
-    if (statuses != null && !statuses.isEmpty()) {
-      statusEnums = statuses.stream().map(String::toUpperCase).map(OrderStatus::valueOf).toList();
-    }
-    return statusEnums;
   }
 }

@@ -18,6 +18,7 @@ import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 @Getter
 @Setter
@@ -27,6 +28,7 @@ import org.hibernate.annotations.SQLDelete;
     @Index(name = "idx_order_created_at", columnList = "created_at"),
     @Index(name = "idx_order_deleted", columnList = "deleted")})
 @SQLDelete(sql = "UPDATE orders SET deleted = true WHERE id = ?")
+@SQLRestriction("deleted = false")
 public class Order extends Auditable {
 
   @Id

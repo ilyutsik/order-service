@@ -1,5 +1,5 @@
 package com.innowise.orderservice.model.dto.request;
 
-public class OrderCreateDto extends BaseOrderDto {
+public class OrderItemUpdateDto extends BaseOrderDto {
 
 }
