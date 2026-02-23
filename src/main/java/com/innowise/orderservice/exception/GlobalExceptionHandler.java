@@ -1,6 +1,5 @@
 package com.innowise.orderservice.exception;
 
-import com.innowise.orderservice.model.entity.OrderStatus;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;

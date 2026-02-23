@@ -22,7 +22,7 @@ services:
     container_name: order-service
     environment:
       DB_HOST: postgres
-      DB_PORT: 5432
+      DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}

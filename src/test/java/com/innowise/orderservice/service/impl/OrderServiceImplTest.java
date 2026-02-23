@@ -16,8 +16,6 @@ import com.innowise.orderservice.exception.ItemNotFoundException;
 import com.innowise.orderservice.exception.OrderNotFoundException;
 import com.innowise.orderservice.exception.UserNotFoundException;
 import com.innowise.orderservice.mapper.OrderMapper;
-import com.innowise.orderservice.mapper.OrderMapperImpl;
-import com.innowise.orderservice.model.UserContext;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemUpdateDto;
