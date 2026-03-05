@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: order-service
+
+  profiles:
+    active: local
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+      default_schema: public
+    show-sql: true
+server:
+  port: 8081
