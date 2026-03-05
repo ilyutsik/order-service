@@ -1,5 +1,6 @@
 package com.innowise.orderservice.controller;
 
+import com.innowise.orderservice.config.security.annotation.AdminOnly;
 import com.innowise.orderservice.model.dto.request.ItemCreateDto;
 import com.innowise.orderservice.model.dto.request.ItemUpdateDto;
 import com.innowise.orderservice.model.dto.response.ItemResponseDto;
@@ -24,18 +25,21 @@ public class ItemController {
 
   private final ItemService itemService;
 
+  @AdminOnly
   @PostMapping
   public ResponseEntity<ItemResponseDto> create(@Valid @RequestBody ItemCreateDto request) {
     ItemResponseDto response = itemService.create(request);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
+  @AdminOnly
   @GetMapping("/{id}")
   public ResponseEntity<ItemResponseDto> getById(@PathVariable("id") Long id) {
     ItemResponseDto response = itemService.getById(id);
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
+  @AdminOnly
   @PutMapping("/{id}")
   public ResponseEntity<ItemResponseDto> update(@PathVariable("id") Long id,
       @Valid @RequestBody ItemUpdateDto updateDto) {
@@ -43,6 +47,7 @@ public class ItemController {
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
+  @AdminOnly
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
     itemService.deleteById(id);

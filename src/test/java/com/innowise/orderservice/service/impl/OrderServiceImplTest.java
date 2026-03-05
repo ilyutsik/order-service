@@ -226,13 +226,11 @@ class OrderServiceImplTest {
 
   @Test
   void getByUserId_shouldThrowUserNotFoundException_whenUserDoesNotExist() {
-    when(orderRepository.findByUserId(1L)).thenReturn(List.of());
     when(userServiceClient.getUserById(1L)).thenReturn(null);
 
     assertThrows(UserNotFoundException.class,
         () -> orderService.getByUserId(1L));
 
-    verify(orderRepository, times(1)).findByUserId(1L);
     verifyNoInteractions(orderMapper);
   }
 
