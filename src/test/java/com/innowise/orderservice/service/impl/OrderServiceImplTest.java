@@ -225,6 +225,18 @@ class OrderServiceImplTest {
   }
 
   @Test
+  void getByUserId_shouldReturnOrderResponseDto_whenNoOrders() {
+    when(orderRepository.findByUserId(1L)).thenReturn(List.of());
+    when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
+
+    List<OrderWithUserResponseDto> result = orderService.getByUserId(1L);
+
+    assertNotNull(result);
+
+    verify(orderRepository).findByUserId(1L);
+  }
+
+  @Test
   void getByUserId_shouldThrowUserNotFoundException_whenUserDoesNotExist() {
     when(userServiceClient.getUserById(1L)).thenReturn(null);
 
@@ -233,6 +245,7 @@ class OrderServiceImplTest {
 
     verifyNoInteractions(orderMapper);
   }
+
 
   @Test
   void updateItemById_shouldUpdateOrder_whenOrderExists() {
