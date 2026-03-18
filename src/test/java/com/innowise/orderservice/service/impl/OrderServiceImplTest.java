@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.innowise.orderservice.exception.ItemNotFoundException;
 import com.innowise.orderservice.exception.OrderNotFoundException;
+import com.innowise.orderservice.exception.OrderStatusTransitionException;
 import com.innowise.orderservice.exception.UserNotFoundException;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
@@ -29,7 +30,6 @@ import com.innowise.orderservice.model.entity.OrderStatus;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.service.UserServiceClient;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -76,7 +76,6 @@ class OrderServiceImplTest {
   private OrderItemUpdateDto itemUpdateDto;
 
   private OrderStatusUpdateDto statusUpdateDto;
-
 
   @BeforeEach
   void setUp() {
@@ -178,7 +177,8 @@ class OrderServiceImplTest {
     when(orderRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(ordersPage);
     when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
 
-    Page<OrderWithUserResponseDto> result = orderService.get(0, 10, LocalDateTime.now().minusDays(1),
+    Page<OrderWithUserResponseDto> result = orderService.get(0, 10,
+        LocalDateTime.now().minusDays(1),
         LocalDateTime.now(), List.of(OrderStatus.PENDING));
 
     assertNotNull(result);
@@ -196,7 +196,8 @@ class OrderServiceImplTest {
     Page<Order> emptyPage = new PageImpl<>(List.of(), pageable, 0);
     when(orderRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(emptyPage);
 
-    Page<OrderWithUserResponseDto> result = orderService.get(0, 10, LocalDateTime.now().minusDays(1),
+    Page<OrderWithUserResponseDto> result = orderService.get(0, 10,
+        LocalDateTime.now().minusDays(1),
         LocalDateTime.now(), List.of(OrderStatus.PENDING));
 
     assertNotNull(result);
@@ -246,14 +247,14 @@ class OrderServiceImplTest {
     verifyNoInteractions(orderMapper);
   }
 
-
   @Test
   void updateItemById_shouldUpdateOrder_whenOrderExists() {
     order.setOrderItems(new ArrayList<>());
 
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-    when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(orderRepository.save(any(Order.class))).thenAnswer(
+        invocation -> invocation.getArgument(0));
     when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
 
     OrderWithUserResponseDto result = orderService.updateItemById(order.getId(), itemUpdateDto);
@@ -274,9 +275,8 @@ class OrderServiceImplTest {
     Long orderId = 999L;
     when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
-   assertThrows(OrderNotFoundException.class,
+    assertThrows(OrderNotFoundException.class,
         () -> orderService.updateItemById(orderId, itemUpdateDto));
-
 
     verify(orderRepository, times(1)).findById(orderId);
     verify(orderRepository, never()).save(any());
@@ -286,7 +286,10 @@ class OrderServiceImplTest {
   void updateItemById_shouldThrowItemNotFoundException_whenItemDoesNotExist() {
     order.setOrderItems(List.of(
         new OrderItem() {{
-          setItem(new Item() {{ setId(1L); setPrice(BigDecimal.valueOf(100)); }});
+          setItem(new Item() {{
+            setId(1L);
+            setPrice(BigDecimal.valueOf(100));
+          }});
           setQuantity(1);
           setOrder(order);
         }}
@@ -303,9 +306,10 @@ class OrderServiceImplTest {
   }
 
   @Test
-  void updateStatusById_shouldUpdateOrder_whenOrderExists() {
+  void updateStatusById_useDto_shouldUpdateOrder_whenOrderExists() {
     when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(orderRepository.save(any(Order.class))).thenAnswer(
+        invocation -> invocation.getArgument(0));
     when(userServiceClient.getUserById(1L)).thenReturn(userResponse);
 
     OrderWithUserResponseDto result = orderService.updateStatusById(order.getId(), statusUpdateDto);
@@ -319,13 +323,52 @@ class OrderServiceImplTest {
   }
 
   @Test
-  void updateStatusById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
+  void updateStatusById_useDto_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
     Long orderId = 999L;
     when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
 
     assertThrows(OrderNotFoundException.class,
         () -> orderService.updateStatusById(orderId, statusUpdateDto));
 
+    verify(orderRepository, times(1)).findById(orderId);
+    verify(orderRepository, never()).save(any());
+  }
+
+  @Test
+  void updateStatusById_shouldUpdateOrderStatus_whenOrderExistsAndTransitionIsValid() {
+    when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(orderRepository.save(any(Order.class))).thenAnswer(
+        invocation -> invocation.getArgument(0));
+
+    orderService.updateStatusById(order.getId(), OrderStatus.PAID);
+
+    assertEquals(OrderStatus.PAID, order.getStatus());
+    verify(orderRepository, times(1)).findById(order.getId());
+    verify(orderRepository, times(1)).save(order);
+  }
+
+  @Test
+  void updateStatusById_shouldThrowOrderNotFoundException_whenOrderDoesNotExist() {
+    Long nonExistentOrderId = 999L;
+    when(orderRepository.findById(nonExistentOrderId)).thenReturn(Optional.empty());
+
+    assertThrows(OrderNotFoundException.class,
+        () -> orderService.updateStatusById(nonExistentOrderId, OrderStatus.PAID)
+    );
+
+    verify(orderRepository, times(1)).findById(nonExistentOrderId);
+    verify(orderRepository, never()).save(any());
+  }
+
+  @Test
+  void updateStatusById_shouldThrowOrderStatusTransitionException_whenStatusTransitionIsInvalid() {
+    order.setStatus(OrderStatus.DELIVERED);
+    Long orderId = order.getId();
+    when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+    assertThrows(OrderStatusTransitionException.class,
+        () -> orderService.updateStatusById(orderId, OrderStatus.PENDING)
+    );
 
     verify(orderRepository, times(1)).findById(orderId);
     verify(orderRepository, never()).save(any());
