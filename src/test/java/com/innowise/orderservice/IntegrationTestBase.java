@@ -10,6 +10,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.utility.DockerImageName;
 
 @Testcontainers
 @Transactional
@@ -24,6 +26,12 @@ public class IntegrationTestBase {
           .withUsername("test")
           .withPassword("test");
 
+
+  @Container
+  static KafkaContainer kafka = new KafkaContainer(
+      DockerImageName.parse("apache/kafka:3.7.0")
+  );
+
   @Container
   protected static GenericContainer<?> wiremock =
       new GenericContainer<>("wiremock/wiremock:3.5.4")
@@ -34,6 +42,7 @@ public class IntegrationTestBase {
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
+    registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
     registry.add("user.service.url", IntegrationTestBase::wiremockBaseUrl);
   }
 
