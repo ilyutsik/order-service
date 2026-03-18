@@ -3,6 +3,7 @@ package com.innowise.orderservice.controller;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -32,8 +33,6 @@ class UserOrdersControllerTest extends IntegrationTestBase {
 
   @Autowired
   private OrderRepository orderRepository;
-
-
 
   @BeforeEach
   void setUp() {
@@ -69,7 +68,11 @@ class UserOrdersControllerTest extends IntegrationTestBase {
   void getByUserId_whenUserHasOrders_shouldReturnOrders() throws Exception {
     stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/users/{userId}/orders", 1L)).andExpect(status().isOk())
+    mockMvc.perform(get("/api/v1/users/orders")
+            .with(user("admin").roles("ADMIN"))
+            .header("X-USER-ID", 1L)
+        )
+        .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].order.userId").value(1))
         .andExpect(jsonPath("$[0].order.status").value("PENDING"))
         .andExpect(jsonPath("$[0].user.name").value("Andrei"));
@@ -78,7 +81,9 @@ class UserOrdersControllerTest extends IntegrationTestBase {
   @Test
   void getByUserId_whenUserNotExist_shouldThrowUserNotFound() throws Exception {
     long nonExistentUserId = 999L;
-    mockMvc.perform(get("/api/v1/users/{userId}/orders", nonExistentUserId))
+    mockMvc.perform(get("/api/v1/users/orders")
+            .with(user("admin").roles("ADMIN"))
+            .header("X-USER-ID", nonExistentUserId))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("User Not Found"));
   }

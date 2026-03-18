@@ -1,5 +1,7 @@
 package com.innowise.orderservice.controller;
 
+import com.innowise.orderservice.config.security.annotation.AdminOnly;
+import com.innowise.orderservice.config.security.annotation.OrderOwnerOrAdmin;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
 import com.innowise.orderservice.model.dto.request.OrderItemUpdateDto;
 import com.innowise.orderservice.model.dto.request.OrderStatusUpdateDto;
@@ -35,18 +37,20 @@ public class OrderController {
   private final UserServiceClient userServiceClient;
 
   @PostMapping
-  public ResponseEntity<OrderWithUserResponseDto> create(@RequestHeader("X-User-Id") Long userId,
+  public ResponseEntity<OrderWithUserResponseDto> create(@RequestHeader("X-USER-ID") Long userId,
       @Valid @RequestBody OrderCreateDto request) {
     OrderWithUserResponseDto response = orderService.create(request, userId);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
+  @OrderOwnerOrAdmin
   @GetMapping("/{id}")
   public ResponseEntity<OrderWithUserResponseDto> getById(@PathVariable("id") Long id) {
     OrderWithUserResponseDto response = orderService.getById(id);
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
+  @AdminOnly
   @GetMapping
   public ResponseEntity<Page<OrderWithUserResponseDto>> get(
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size,
@@ -59,6 +63,7 @@ public class OrderController {
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
+  @OrderOwnerOrAdmin
   @PatchMapping("/{id}/items")
   public ResponseEntity<OrderWithUserResponseDto> updateItems(@PathVariable("id") Long id,
       @Valid @RequestBody OrderItemUpdateDto updateDto) {
@@ -66,6 +71,7 @@ public class OrderController {
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
+  @AdminOnly
   @PatchMapping("/{id}/status")
   public ResponseEntity<OrderWithUserResponseDto> updateStatus(@PathVariable("id") Long id,
       @Valid @RequestBody OrderStatusUpdateDto updateDto) {
@@ -73,6 +79,7 @@ public class OrderController {
     return ResponseEntity.status(HttpStatus.OK).body(response);
   }
 
+  @OrderOwnerOrAdmin
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
     orderService.deleteById(id);

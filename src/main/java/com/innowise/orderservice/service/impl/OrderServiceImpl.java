@@ -107,12 +107,12 @@ public class OrderServiceImpl implements OrderService {
   @Override
   @Transactional(readOnly = true)
   public List<OrderWithUserResponseDto> getByUserId(Long userId) {
-    List<Order> orders = orderRepository.findByUserId(userId);
-
     UserResponseDto userDto = userServiceClient.getUserById(userId);
     if (userDto == null) {
       throw new UserNotFoundException("id", userId.toString());
     }
+
+    List<Order> orders = orderRepository.findByUserId(userId);
 
     List<OrderWithUserResponseDto> response = new ArrayList<>();
     for (Order order : orders) {
@@ -122,6 +122,10 @@ public class OrderServiceImpl implements OrderService {
       response.add(orderWithUserResponseDto);
     }
 
+    if (response.isEmpty()) {
+      response.add(new OrderWithUserResponseDto(null, userDto));
+    }
+    
     return response;
   }
 

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -115,7 +116,8 @@ class OrderControllerTest extends IntegrationTestBase {
     stubUser(1L);
 
     MvcResult result = mockMvc.perform(
-            post("/api/v1/orders").header("X-User-Id", String.valueOf(1L))
+            post("/api/v1/orders").header("X-USER-ID", String.valueOf(1L))
+                .with(user("admin").roles("ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isCreated()).andReturn();
@@ -132,7 +134,9 @@ class OrderControllerTest extends IntegrationTestBase {
     stubUser(1L);
 
     mockMvc.perform(
-            post("/api/v1/orders").header("X-User-Id", 99L).contentType(MediaType.APPLICATION_JSON)
+            post("/api/v1/orders").header("X-User-Id", 99L)
+                .with(user("admin").roles("ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("User Not Found"));
   }
@@ -144,7 +148,9 @@ class OrderControllerTest extends IntegrationTestBase {
     itemRepository.deleteById(testItem.getId());
 
     mockMvc.perform(
-            post("/api/v1/orders").header("X-User-Id", 1L).contentType(MediaType.APPLICATION_JSON)
+            post("/api/v1/orders").header("X-User-Id", 1L)
+                .with(user("admin").roles("ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("Item Not Found"));
   }
@@ -156,7 +162,9 @@ class OrderControllerTest extends IntegrationTestBase {
     testOrderCreateDto.setItems(Collections.emptyList());
 
     mockMvc.perform(
-            post("/api/v1/orders").header("X-User-Id", 1L).contentType(MediaType.APPLICATION_JSON)
+            post("/api/v1/orders").header("X-User-Id", 1L)
+                .with(user("admin").roles("ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(testOrderCreateDto)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.error").value("Validation Failed"));
@@ -166,14 +174,18 @@ class OrderControllerTest extends IntegrationTestBase {
   void getById_whenOrderExistsAndUserExists_shouldReturn200() throws Exception {
     stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/orders/{id}", testOrder.getId())).andExpect(status().isOk())
+    mockMvc.perform(get("/api/v1/orders/{id}", testOrder.getId())
+            .with(user("admin").roles("ADMIN")))
+        .andExpect(status().isOk())
         .andExpect(jsonPath("$.user.name").value("Andrei"))
         .andExpect(jsonPath("$.order.totalPrice").value(testOrder.getTotalPrice().intValue()));
   }
 
   @Test
   void getById_whenOrderNotFound_shouldReturn404() throws Exception {
-    mockMvc.perform(get("/api/v1/orders/{id}", 999L)).andExpect(status().isNotFound())
+    mockMvc.perform(get("/api/v1/orders/{id}", 999L)
+            .with(user("admin").roles("ADMIN")))
+        .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
 
@@ -182,7 +194,9 @@ class OrderControllerTest extends IntegrationTestBase {
     stubUser(1L);
 
     mockMvc.perform(
-            get("/api/v1/orders").param("page", "0").param("size", "10").param("statuses", "PENDING"))
+            get("/api/v1/orders").param("page", "0").param("size", "10")
+                .param("statuses", "PENDING")
+                .with(user("admin").roles("ADMIN")))
         .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].user.name").value("Andrei"))
         .andExpect(
             jsonPath("$.content[0].order.totalPrice").value(testOrder.getTotalPrice().intValue()));
@@ -193,7 +207,9 @@ class OrderControllerTest extends IntegrationTestBase {
     orderRepository.deleteAll();
     itemRepository.deleteAll();
 
-    mockMvc.perform(get("/api/v1/orders").param("page", "0").param("size", "10"))
+    mockMvc.perform(get("/api/v1/orders").param("page", "0")
+            .param("size", "10")
+            .with(user("admin").roles("ADMIN")))
         .andExpect(status().isOk()).andExpect(jsonPath("$.content").isEmpty());
   }
 
@@ -201,7 +217,9 @@ class OrderControllerTest extends IntegrationTestBase {
   void getOrders_whenStatusesFilterEmpty_shouldReturnAllOrders() throws Exception {
     stubUser(1L);
 
-    mockMvc.perform(get("/api/v1/orders").param("page", "0").param("size", "10"))
+    mockMvc.perform(get("/api/v1/orders").param("page", "0")
+            .param("size", "10")
+            .with(user("admin").roles("ADMIN")))
         .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].user.name").value("Andrei"));
   }
 
@@ -213,8 +231,9 @@ class OrderControllerTest extends IntegrationTestBase {
     updateDto.setItems(List.of(new OrderItemCreateDto(newItem.getId(), 3)));
 
     MvcResult result = mockMvc.perform(
-            patch("/api/v1/orders/{id}/items", testOrder.getId()).contentType(
-                MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateDto)))
+            patch("/api/v1/orders/{id}/items", testOrder.getId())
+                .with(user("admin").roles("ADMIN"))
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateDto)))
         .andExpect(status().isOk()).andReturn();
 
     OrderWithUserResponseDto response = objectMapper.readValue(
@@ -231,7 +250,9 @@ class OrderControllerTest extends IntegrationTestBase {
     OrderItemUpdateDto updateDto = new OrderItemUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(newItem.getId(), 1)));
 
-    mockMvc.perform(patch("/api/v1/orders/{id}/items", 999L).contentType(MediaType.APPLICATION_JSON)
+    mockMvc.perform(patch("/api/v1/orders/{id}/items", 999L)
+            .with(user("admin").roles("ADMIN"))
+            .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(updateDto))).andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
@@ -241,15 +262,18 @@ class OrderControllerTest extends IntegrationTestBase {
     OrderItemUpdateDto updateDto = new OrderItemUpdateDto();
     updateDto.setItems(List.of(new OrderItemCreateDto(999L, 1)));
 
-    mockMvc.perform(patch("/api/v1/orders/{id}/items", testOrder.getId()).contentType(
-            MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateDto)))
+    mockMvc.perform(patch("/api/v1/orders/{id}/items", testOrder.getId())
+            .with(user("admin").roles("ADMIN"))
+            .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateDto)))
         .andExpect(status().isNotFound()).andExpect(jsonPath("$.error").value("Item Not Found"));
   }
 
   @Test
   void deleteOrder_whenNotExists_shouldReturnNotFound() throws Exception {
     long nonExistentId = 9999L;
-    mockMvc.perform(delete("/api/v1/orders/{id}", nonExistentId)).andExpect(status().isNotFound())
+    mockMvc.perform(delete("/api/v1/orders/{id}", nonExistentId)
+            .with(user("admin").roles("ADMIN")))
+        .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("Order Not Found"));
   }
 }

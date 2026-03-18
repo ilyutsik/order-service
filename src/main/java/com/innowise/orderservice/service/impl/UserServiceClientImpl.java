@@ -14,19 +14,9 @@ public class UserServiceClientImpl implements UserServiceClient {
   private final UserClient userClient;
 
   @Override
-  @CircuitBreaker(name = "userService", fallbackMethod = "userFallbackByEmail")
-  public UserResponseDto getUserByEmail(String email) {
-    return userClient.getUserByEmail(email);
-  }
-
-  @Override
   @CircuitBreaker(name = "userService", fallbackMethod = "userFallbackById")
   public UserResponseDto getUserById(Long id) {
-    return userClient.getUserById(id);
-  }
-
-  private UserResponseDto userFallbackByEmail(String email, Throwable t) {
-    return null;
+    return userClient.getUserById(id, id, "ROLE_USER");
   }
 
   private UserResponseDto userFallbackById(Long id, Throwable t) {
