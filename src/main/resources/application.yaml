@@ -1,4 +1,41 @@
 spring:
+  kafka:
+    bootstrap-servers: kafka:9092
+    producer:
+      acks: all
+      retries: 3
+      enable-idempotence: true
+      linger-ms: 5
+      batch-size: 16384
+      compression-type: snappy
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.innowise.orderservice.kafka.event"
+        spring.json.value.default.type: "com.innowise.orderservice.kafka.event.CreatePaymentEvent"
+      listener:
+        ack-mode: record
+        concurrency: 3
+        type: single
+    topics:
+      payment-events: create-payment
+      payment-events-dlq: create-payment-dlq
+
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
   application:
     name: order-service
 
@@ -11,5 +48,5 @@ spring:
       dialect: org.hibernate.dialect.PostgreSQLDialect
       default_schema: public
     show-sql: true
-server:
+
   port: 8081

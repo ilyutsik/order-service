@@ -2,6 +2,7 @@ package com.innowise.orderservice.repository;
 
 import com.innowise.orderservice.model.entity.Order;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -16,4 +17,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
   List<Order> findByUserId(Long userId);
 
   Long findUserIdById(Long cardId);
+
+  Optional<Order> findById(Long id);
 }

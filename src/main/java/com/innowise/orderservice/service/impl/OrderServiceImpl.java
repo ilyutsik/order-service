@@ -2,6 +2,7 @@ package com.innowise.orderservice.service.impl;
 
 import com.innowise.orderservice.exception.ItemNotFoundException;
 import com.innowise.orderservice.exception.OrderNotFoundException;
+import com.innowise.orderservice.exception.OrderStatusTransitionException;
 import com.innowise.orderservice.exception.UserNotFoundException;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.dto.request.OrderCreateDto;
@@ -166,6 +167,19 @@ public class OrderServiceImpl implements OrderService {
     Order updated = orderRepository.save(updatedOrder);
     UserResponseDto userDto = userServiceClient.getUserById(updated.getUserId());
     return new OrderWithUserResponseDto(orderMapper.toDto(updated), userDto);
+  }
+
+  @Override
+  public void updateStatusById(Long id, OrderStatus status) {
+    Order updatedOrder = orderRepository.findById(id)
+        .orElseThrow(() -> new OrderNotFoundException("id", id.toString()));
+
+    if (!updatedOrder.getStatus().allowsTransitionTo(status)) {
+      throw new OrderStatusTransitionException(updatedOrder.getStatus(), status);
+    }
+    updatedOrder.setStatus(status);
+
+    orderRepository.save(updatedOrder);
   }
 
   @Override

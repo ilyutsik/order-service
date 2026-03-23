@@ -22,6 +22,8 @@ public interface OrderService {
 
   OrderWithUserResponseDto updateStatusById(Long id, OrderStatusUpdateDto updateDto);
 
+  void updateStatusById(Long id, OrderStatus status);
+
   OrderWithUserResponseDto updateItemById(Long id, OrderItemUpdateDto updateDto);
 
   void deleteById(Long id);
